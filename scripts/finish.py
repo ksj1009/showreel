@@ -76,11 +76,14 @@ def main():
     outs = [master]
     if not a.no_web:
         web = od / f"{a.name}_공유용.mp4"
-        cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(master), "-c:v", "libx264", "-preset", "slow", "-crf", "23",
+        # 소리는 마스터의 AAC 가 아니라 원본 믹스(--audio)에서 인코딩한다. AAC 를 두 번 인코딩하면 피크가 올라
+        # 아래 피크 보정이 음량을 깎아 공유용이 -16 LUFS 까지 작아졌다(2026-11-23 실측: 마스터 -13.9 → 공유용 -16.0).
+        src = ["-i", str(master)] + (["-i", a.audio, "-map", "0:v:0", "-map", "1:a:0"] if a.audio else [])
+        cmd = ["ffmpeg", "-v", "error", "-y", *src, "-c:v", "libx264", "-preset", "slow", "-crf", "23",
                "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", "-colorspace", "bt709", "-color_primaries", "bt709",
                "-color_trc", "bt709", "-color_range", "tv"]
         if a.audio:
-            cmd += ["-c:a", "aac", "-b:a", "192k"]
+            cmd += ["-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
         cmd += ["-t", f"{vdur:.3f}", "-movflags", "+faststart", str(web)]
         run(cmd)
         if a.audio:   # AAC 를 한 번 더 인코딩하면 피크가 오른다 → 넘으면 오디오만 낮춰 다시(영상은 복사). 다시 재서 통과할 때까지 최대 3번

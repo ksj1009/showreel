@@ -110,7 +110,24 @@ async function openPage(browser, url, W, H) {
 }
 
 async function shot(p, t, W, H, fmt) {
-  await p.page.evaluate(tt => window.__seek(tt), t);
+  // 장면이 새로 보이게 된 프레임이면, 그 장면의 그림(CSS 배경 그림 포함)이 그려질 때까지 기다린 뒤 찍는다.
+  // 숨겨 두었던 장면을 보이게 한 직후 바로 찍으면 배경 그림이 아직 그려지지 않아 빈(검은) 프레임이 나온다
+  // (2026-11-23 재현: 장면 시작 프레임이 밝기 0 → 이 대기 뒤 정상).
+  await p.page.evaluate(async tt => {
+    const vis = () => [...document.querySelectorAll('section.scene')].filter(e => e.style.display !== 'none');
+    const before = new Set(vis());
+    window.__seek(tt);
+    const shown = vis().filter(e => !before.has(e));
+    if (!shown.length) return;
+    const urls = new Set();
+    for (const sc of shown) for (const el of [sc, ...sc.querySelectorAll('*')]) {
+      const bg = getComputedStyle(el).backgroundImage;
+      for (const m of bg.matchAll(/url\(["']?([^"')]+)["']?\)/g)) urls.add(m[1]);
+    }
+    await Promise.all([...urls].map(u => { const im = new Image(); im.src = u; return im.decode().catch(() => null); }));
+    await Promise.all([...shown.flatMap(sc => [...sc.querySelectorAll('img')])].map(im => (im.complete ? im.decode().catch(() => null) : new Promise(r => { im.onload = im.onerror = r; }))));
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }, t);
   const { data } = await p.cdp.send('Page.captureScreenshot', {
     format: fmt, ...(fmt === 'jpeg' ? { quality } : {}), optimizeForSpeed: true, captureBeyondViewport: false,
     clip: { x: 0, y: 0, width: W, height: H, scale: 1 },

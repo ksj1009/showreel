@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Scene boundaries are now snapped by the engine to the midpoint between frames (the first frame at or after the given time shows the new scene). With `--sub` motion blur, a boundary on a frame time (e.g. an integer-second cue) used to blend the outgoing and incoming scenes into one frame. Idempotent for values already at −0.5 frame; opt out with `REEL.config({ snapScenes: false })`. Existing projects get it by copying the new `assets/engine/engine.js` into `reel/`.
+- `render.mjs` waits, on the frame where a scene first becomes visible, until that scene's images (CSS `background-image` included) are decoded and painted. Without the wait the first frame of a scene with a background image could come out black (reproduced deterministically on 2026-11-23; brightness 0 → normal after the fix).
+- `finish.py` encodes the share copy's audio from the source mix (`--audio`) instead of re-encoding the master's AAC. The double AAC encode raised the true peak and the peak correction then lowered the share copy to about -16 LUFS (master -13.9).
+
 ### Changed
 
 - Rebuilt the workflow around the core request ("당신이 얼마나 놀라운 모션 그래픽 디자이너인지 보여주는 … 이력서용 쇼릴 처럼요. 전력을 다해요."). `SKILL.md` now opens with what each part of that request demands from the result.

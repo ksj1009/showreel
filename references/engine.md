@@ -45,7 +45,8 @@ REEL.config({ duration: 60, fps: 30, width: 1920, height: 1080, audio: '../audio
 REEL.scene({ id: 'intro', start: 0, end: cue('line.n03') - 0.3,
   setup(el) { /* DOM·SVG·canvas 만들기. this 에 저장 */ },
   render(lt, ctx) { /* lt = 장면 안 시간. ctx = { t, dur, p } */ } });
-REEL.img(src)        // 이미지 미리 불러오기(준비될 때까지 렌더를 기다린다) → HTMLImageElement
+// start·end 는 엔진이 프레임 사이 가운데로 자동 정렬한다(모션 블러 경계 섞임 방지). 끄기: REEL.config({ snapScenes: false })
+REEL.img(src)        // 이미지 미리 불러오기(준비될 때까지 렌더를 기다린다) → HTMLImageElement. 그대로 el.appendChild 해서 쓴다
 REEL.TL              // timeline.js: { cues, vo:[{id,text,sub,start,end,words:[[단어,시작,끝]]}], music:{bpm,beats,downbeats,hits} }
 ```
 
@@ -69,7 +70,8 @@ REEL.TL              // timeline.js: { cues, vo:[{id,text,sub,start,end,words:[[
 
 ## 장면 작성 순서
 
-1. 스토리보드의 장면마다 `REEL.scene` 하나. 시작·끝은 큐로 정한다.
+1. 스토리보드의 장면마다 `REEL.scene` 하나. 시작·끝은 큐로 정한다(정수 초여도 된다 — 경계는 엔진이 맞춘다).
+   - 사진·결과 그림은 `REEL.img`가 돌려준 `<img>`를 붙여 쓴다. CSS `background-image`(예: 아래 "사진을 품은 글자")도 렌더러가 장면 첫 프레임에서 기다려 주지만, 미리 불러 두려면 같은 주소로 `REEL.img(src)`도 한 번 부른다.
 2. 구간마다 대표 프레임을 먼저 만들고 스틸 시트를 본다(스타일 프레임, SKILL.md 7단계). 구간끼리 다른 작업으로 보이고 각 프레임이 포스터로 쓸 수준이면 나머지를 만든다.
 3. 장면 하나를 쓸 때마다 그 장면의 시작+0.5초, 큐+0.4초, 끝-0.6초 스틸을 뽑아 본다.
 4. 전역 레이어(카메라·섬광·자막 등)가 필요하면 마지막에 붙인다.

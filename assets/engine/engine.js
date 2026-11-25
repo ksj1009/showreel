@@ -11,6 +11,7 @@
  *       setup(el)        한 번 호출. el은 무대 크기의 <section>. DOM·SVG·canvas를 여기서 만든다.
  *       render(lt, ctx)  매 프레임 호출. lt = 장면 안 시간(초), ctx = { t, dur, p }.
  *       start/end는 숫자 또는 큐 이름 문자열(timeline.js의 TL.cues). 장면 구간은 겹쳐도 된다(전환).
+ *       경계는 엔진이 프레임 사이 가운데로 자동 정렬한다(모션 블러 섞임 방지, snapScenes:false 로 끔). 장면 안 하드 컷은 직접 −0.5프레임.
  *       나중에 등록한 장면이 위에 그려진다. 구간 밖 장면은 display:none 이라 비용이 들지 않는다.
  *   REEL.overlay(fn, { layer: 'back' | 'cam' | 'top' })   모든 프레임에 호출되는 전역 레이어 fn(t). back 은 장면 뒤, cam 은 장면 위(카메라와 함께 움직임), top 은 맨 위
  *   REEL.preload(promise) / REEL.img(src)        준비 작업. 모두 끝나야 __ready = true
@@ -291,6 +292,15 @@
     return im;
   }
 
+  // 장면 경계를 '그 시각 이후 첫 프레임'과 바로 앞 프레임의 가운데(프레임 − 0.5)로 옮긴다.
+  // --sub 모션 블러는 프레임 시각 앞뒤로 나눠 찍어 섞으므로, 경계가 프레임 시각에 가까우면 그 프레임에 앞뒤 장면이 섞인다.
+  // 가운데에 두면 어느 프레임의 샘플도 경계를 넘지 않는다. 이미 −0.5프레임에 둔 값은 그대로(여러 번 적용해도 같음).
+  // 첫 시작(0)과 영상 끝은 건드리지 않는다. 끄려면 REEL.config({ snapScenes: false }).
+  function edge(t) {
+    if (cfg.snapScenes === false || !(t > 0) || t >= cfg.duration - 1e-9) return t;
+    return (Math.ceil(t * cfg.fps - 1e-6) - 0.5) / cfg.fps;
+  }
+
   let stage, cam, back, top;
   function seek(t) {
     for (const sc of scenes) {
@@ -326,8 +336,8 @@
     await Promise.all(fams.flatMap(f => [400, 700, 900].map(w => document.fonts.load(`${w} 64px "${f}"`, sample).catch(() => null))));
     const pending = [];
     for (const sc of scenes) {
-      sc._s = when(sc.start);
-      sc._e = when(sc.end);
+      sc._s = edge(when(sc.start));
+      sc._e = edge(when(sc.end));
       sc.el = h('section', 'scene', cam);
       sc.el.id = sc.id;
       sc._on = false;
